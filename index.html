@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NYC NavGuard</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            height: 100%;
+        }
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        header {
+            background-color: #0056b3;
+            color: white;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center; /* Center the contents horizontally */
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Adds subtle shadow for depth */
+        }
+        #logo {
+            height: 40px; /* Adjust as needed */
+            position: absolute;
+            left: 1rem; /* Position logo on the left side */
+        }
+        #search {
+            width: 300px;
+            padding: 0.5rem 1rem;
+            border: 1px solid #007bff; /* Border color matching theme */
+            border-radius: 24px; /* Rounded corners for a modern look */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* Adds subtle shadow for depth */
+            outline: none;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease; /* Smooth transition effects */
+        }
+        #search:focus {
+            border-color: #0056b3; /* Darker border color on focus */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2); /* Enhance shadow on focus */
+        }
+        #emergency-button {
+            position: absolute;
+            right: 1rem;
+            background-color: #dc3545; /* Red color for emergency */
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 24px; /* Rounded corners for consistency */
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* Adds subtle shadow for depth */
+            transition: background-color 0.3s ease, box-shadow 0.3s ease; /* Smooth transition effects */
+        }
+        #emergency-button:hover {
+            background-color: #c82333; /* Darker red on hover */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2); /* Enhance shadow on hover */
+        }
+        #content {
+            flex-grow: 1;
+            display: flex;
+            overflow: hidden;
+            background-color: #f1f1f1; /* Light background for contrast */
+        }
+        #map-container {
+            flex-grow: 1;
+            padding: 1rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #fff; /* White background for the map */
+            border-radius: 8px; /* Rounded corners for a modern look */
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2); /* Subtle shadow for elevation effect */
+        }
+        #map-container iframe {
+            border: none;
+            width: 100%;
+            height: 100%;
+            max-height: 600px; /* Adjust height as needed */
+            border-radius: 8px; /* Rounded corners to match the container */
+        }
+        #sidebar {
+            width: 300px;
+            background-color: #ffffff;
+            padding: 1rem;
+            overflow-y: auto;
+            box-shadow: -2px 0 6px rgba(0,0,0,0.2); /* Shadow on the left side for separation */
+        }
+        #sidebar h2 {
+            margin-top: 0;
+            color: #0056b3;
+            border-bottom: 2px solid #0056b3; /* Underline for emphasis */
+            padding-bottom: 0.5rem;
+        }
+        .incident {
+            background-color: white;
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: background-color 0.3s ease; /* Smooth transition effect */
+        }
+        .incident:hover {
+            background-color: #e9ecef; /* Light grey background on hover */
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <img id="logo" src="Screenshot 2024-09-14 151128.png" alt="NYC NavGuard Logo">
+            <input type="text" id="search" placeholder="Search neighborhood">
+            <button id="emergency-button">Emergency</button>
+        </header>
+        <div id="content">
+            <div id="map-container">
+                <iframe src="https://app.mapline.com/map/map_6dbe7c2f/K0JyY0hqWUtUcnNoV0h3WjAxdkFmZzFFaXVzOUUvOVhjMmtLYV" allow="geolocation *"></iframe>
+                <div style="font-size: 10px; color: #555;"><a href="https://mapline.com" target="_blank">Mapping by Mapline</a></div>
+            </div>
+            <div id="sidebar">
+                <h2>Recent Incidents</h2>
+                <div id="incidents-list"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Mock data for incidents in New York
+        const incidents = [
+            { type: "Theft", location: "Manhattan", time: "14:30" },
+            { type: "Vandalism", location: "Brooklyn", time: "11:45" },
+            { type: "Disturbance", location: "Queens", time: "09:15" },
+            { type: "Assault", location: "Bronx", time: "22:00" },
+            { type: "Burglary", location: "Staten Island", time: "03:45" }
+        ];
+
+        // Populate incidents list
+        const incidentsList = document.getElementById('incidents-list');
+        incidents.forEach(incident => {
+            const div = document.createElement('div');
+            div.className = 'incident';
+            div.innerHTML = `
+                <h3>${incident.type}</h3>
+                <p>Location: ${incident.location}</p>
+                <p>Time: ${incident.time}</p>
+            `;
+            incidentsList.appendChild(div);
+        });
+
+        // Basic search functionality (for demonstration)
+        document.getElementById('search').addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const incidentElements = document.querySelectorAll('.incident');
+            
+            incidentElements.forEach(incident => {
+                const text = incident.textContent.toLowerCase();
+                if (text.includes(searchTerm)) {
+                    incident.style.display = '';
+                } else {
+                    incident.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
+
