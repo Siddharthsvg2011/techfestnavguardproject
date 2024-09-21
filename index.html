@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Map with Navigation</title>
+    <title>Map with Crime Avoidance</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
     <style>
         body, html {
             margin: 0;
@@ -22,41 +22,41 @@
         }
 
         header {
-            background-color: #0056b3;
+            background-color: #002042;
             color: white;
             padding: 1rem;
             display: flex;
             align-items: center;
-            justify-content: center; /* Center the contents horizontally */
+            justify-content: center;
             position: relative;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Adds subtle shadow for depth */
+            box-shadow: 0 29px 4px rgba(0,0,0,0.1);
         }
 
         #logo {
-            height: 40px; /* Adjust as needed */
+            height: 40px;
             position: absolute;
-            left: 1rem; /* Space between the logo and the left edge */
+            left: 1rem;
         }
 
         #search {
             width: 300px;
             padding: 0.5rem 1rem;
-            border: 1px solid #007bff; /* Border color matching theme */
-            border-radius: 24px; /* Rounded corners for a modern look */
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* Adds subtle shadow for depth */
+            border: 1px solid #007bff;
+            border-radius: 24px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
             outline: none;
-            transition: border-color 0.3s ease, box-shadow 0.3s ease; /* Smooth transition effects */
-            margin-left: auto; /* Pushes search bar to the center */
-            margin-right: auto; /* Centers search bar */
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         #search:focus {
-            border-color: #0056b3; /* Darker border color on focus */
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2); /* Enhance shadow on focus */
+            border-color: #0056b3;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
 
         header button {
-            background-color: #007BFF;
+            background-color: #00346c;
             border: none;
             color: white;
             padding: 12px 20px;
@@ -98,15 +98,15 @@
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-            margin-left: 20px; /* Space between map and crime info */
-            height: 70vh; /* Ensure it matches the map height */
-            overflow-y: auto; /* Scroll if content overflows */
+            margin-left: 20px;
+            height: 70vh;
+            overflow-y: auto;
         }
 
         #crime-info h2 {
             margin-top: 0;
             font-size: 1.5em;
-            color: #007BFF;
+            color: #004186;
         }
 
         #crime-info ul {
@@ -142,7 +142,7 @@
 </head>
 <body>
     <header>
-        <img id="logo" src="Screenshot 2024-09-14 162756.png" alt="Logo">
+        <img id="logo" src="Screenshot 2024-09-18 162756.png" alt="Logo">
         <input type="text" id="search" placeholder="Search neighborhood">
         <button id="get-directions">Get Directions</button>
         <button id="emergency">Emergency</button>
@@ -157,7 +157,110 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
-    <script src="app.js"></script>
+    <script>
+        const startPoint = L.latLng(51.5074, -0.1278); // Starting point (e.g., London)
+        const map = L.map('map').setView(startPoint, 13); // Centered on the starting point
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        let routingControl;
+        let crimeAreas = [];  
+        let crimeMarkers = []; 
+
+        async function fetchCrimeData(bounds) {
+            const southWest = bounds.getSouthWest();
+            const northEast = bounds.getNorthEast();
+            const url = `https://data.police.uk/api/crimes-street/all-crime?lat=${(southWest.lat + northEast.lat) / 2}&lng=${(southWest.lng + northEast.lng) / 2}`;
+            const crimeListElement = document.getElementById('crime-list');
+            crimeListElement.innerHTML = '';
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                
+                let crimes = await response.json();
+                crimes = crimes.slice(0, 100);
+
+                if (crimes.length === 0) {
+                    crimeListElement.innerHTML = '<li>No crimes reported in this area.</li>';
+                } else {
+                    const crimeCoords = {};
+                    crimes.forEach(crime => {
+                        const lat = crime.location.latitude;
+                        const lng = crime.location.longitude;
+                        const street = crime.location.street.name;
+
+                        const marker = L.marker([lat, lng]).addTo(map);
+                        marker.bindPopup(`<strong>${crime.category}</strong><br>Location: ${street}`);
+
+                        const key = `${lat},${lng}`;
+                        if (!crimeCoords[key]) {
+                            crimeCoords[key] = { count: 1, lat, lng, street };
+                        } else {
+                            crimeCoords[key].count += 1;
+                        }
+
+                        const li = document.createElement('li');
+                        li.innerHTML = `<strong>${crime.category}</strong> on ${street}`;
+                        crimeListElement.appendChild(li);
+                    });
+
+                    highlightCrimeAreas(crimeCoords);
+                }
+            } catch (error) {
+                console.error('Error fetching crime data:', error);
+                crimeListElement.innerHTML = '<li>Unable to fetch crime data. Please try again later.</li>';
+            }
+        }
+
+        function highlightCrimeAreas(crimeCoords) {
+            crimeAreas.forEach(area => map.removeLayer(area));
+            crimeAreas = [];
+
+            Object.values(crimeCoords).forEach(coord => {
+                if (coord.count > 3) {
+                    const circle = L.circle([coord.lat, coord.lng], {
+                        color: 'red',
+                        fillColor: '#f03',
+                        fillOpacity: 0.5,
+                        radius: 200
+                    }).addTo(map);
+                    crimeAreas.push(circle);
+                }
+            });
+        }
+
+        function avoidCrimeAreas(waypoints) {
+            if (routingControl) {
+                map.removeControl(routingControl);
+            }
+
+            routingControl = L.Routing.control({
+                waypoints: waypoints,
+                routeWhileDragging: true,
+                geocoder: L.Control.Geocoder.nominatim(),
+                router: L.Routing.osrmv1({
+                    serviceUrl: 'https://router.project-osrm.org/route/v1',
+                }),
+                createMarker: function() { return null; }
+            }).addTo(map);
+        }
+
+        map.on('moveend', () => {
+            fetchCrimeData(map.getBounds());
+        });
+
+        document.getElementById('get-directions').addEventListener('click', () => {
+            const waypoints = [
+                startPoint,
+                L.latLng(51.51, -0.1) // Example end point
+            ];
+            avoidCrimeAreas(waypoints);
+        });
+
+        fetchCrimeData(map.getBounds());
+    </script>
 </body>
 </html>
 
