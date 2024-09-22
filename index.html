@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crime Map App</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            height: 100%;
+            background-color: #e9ecef;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        body.night-mode {
+            background-color: #343a40;
+            color: white;
+        }
+
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        header {
+            background-color: #003366; /* Darker blue for the header */
+            color: white;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            width: 100%; /* Set width to full */
+            margin: 0; /* Remove margin for full width */
+        }
+
+        #logo {
+            height: 40px;
+        }
+
+        #search {
+            width: 300px;
+            padding: 0.5rem 1rem;
+            border: 2px solid #ffc107;
+            border-radius: 24px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        #search:focus {
+            border-color: #ff9800;
+            box-shadow: 0 0 5px rgba(255, 152, 0, 0.5);
+            outline: none;
+        }
+
+        .button-container {
+            display: flex;
+            gap: 10px;
+            margin: 1rem 0;
+        }
+
+        header button {
+            background-color: #007BFF; /* Blue color for buttons */
+            border: none;
+            color: white;
+            padding: 12px 0;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 1.1em;
+            width: 200px; /* Set all buttons to the same width */
+        }
+
+        header button#emergency {
+            background-color: #dc3545; /* Emergency button stays red */
+        }
+
+        header button:hover {
+            background-color: #0056b3; /* Darker blue on hover */
+        }
+
+        header button#emergency:hover {
+            background-color: #c82333; /* Darker red on hover */
+        }
+
+        #main-content {
+            display: flex;
+            flex: 1;
+            margin: 20px;
+        }
+
+        #map {
+            flex: 2;
+            height: 70vh;
+            border-radius: 10px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        #crime-info {
+            flex: 1;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            margin-left: 20px;
+            height: 70vh;
+            overflow-y: auto;
+        }
+
+        #crime-info h2 {
+            margin-top: 0;
+            font-size: 1.5em;
+            color: #007BFF;
+        }
+
+        #crime-info ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        #crime-info li {
+            border-bottom: 1px solid #ddd;
+            padding: 10px 0;
+            font-size: 1em;
+            color: #495057;
+        }
+
+        #feedback-section, #report-crime-section {
+            background-color: #ffffff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+
+        #feedback-section h2, #report-crime-section h2 {
+            color: #007BFF;
+        }
+
+        #feedback, #report-crime {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #007BFF;
+            border-radius: 5px;
+            margin-top: 10px;
+            box-sizing: border-box;
+            font-size: 1em;
+            color: #495057;
+        }
+
+        #feedback button, #report-crime button {
+            background-color: #007BFF;
+            color: white;
+            padding: 12px 0;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+            transition: background-color 0.3s ease;
+        }
+
+        #feedback button:hover, #report-crime button:hover {
+            background-color: #0056b3;
+        }
+
+        #feedback-section {
+            background-color: #e7f1ff;
+        }
+
+        #report-crime-section {
+            background-color: #ffe7e7;
+        }
+
+        .night-mode #feedback-section {
+            background-color: #495057;
+            color: white;
+        }
+
+        .night-mode #report-crime-section {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        #share-location-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px;
+        }
+
+        #share-location {
+            background-color: #007BFF; /* Same blue for Share Live Location */
+            color: white;
+            padding: 12px 0;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 200px; /* Set to the same width */
+            transition: background-color 0.3s ease;
+            font-size: 1.1em;
+        }
+
+        #share-location:hover {
+            background-color: #0056b3; /* Darker blue on hover */
+        }
+
+        footer {
+            background-color: #0056b3;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            width: 100%; /* Full width */
+            margin-top: auto; /* Push to the bottom */
+        }
+
+        .footer-content p {
+            margin: 5px 0;
+        }
+
+        .footer-content a {
+            text-decoration: none;
+        }
+
+        @media (max-width: 600px) {
+            #search {
+                width: 150px;
+            }
+
+            #crime-info {
+                margin: 5px;
+                padding: 5px;
+            }
+
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <img id="logo" src="Screenshot 2024-09-18 162756.png" alt="Logo">
+            <input type="text" id="search" placeholder="Search neighborhood">
+            <div class="button-container">
+                <button id="get-directions">Get Directions</button>
+                <button id="emergency">Emergency</button>
+                <button id="night-mode-toggle">🌙 Night Mode</button>
+            </div>
+        </header>
+        <div id="main-content">
+            <div id="map"></div>
+            <div id="crime-info">
+                <h2>Crime Information</h2>
+                <ul id="crime-list"></ul>
+            </div>
+        </div>
+
+        <div id="feedback-section">
+            <h2>Send Feedback</h2>
+            <textarea id="feedback" rows="4" placeholder="Your feedback here..."></textarea>
+            <button id="feedback-submit">Submit</button>
+        </div>
+
+        <div id="report-crime-section">
+            <h2>Report a Crime</h2>
+            <textarea id="report-crime" rows="4" placeholder="Describe the crime"></textarea>
+            <button id="report-crime-submit">Submit</button>
+        </div>
+
+        <div id="share-location-container">
+            <button id="share-location">📍 Share Live Location</button>
+        </div>
+
+        <footer>
+            <div class="footer-content">
+                <p>&copy; 2024 Crime Map App. All rights reserved.</p>
+                <p>Designed by Your Name | <a href="#" style="color: #007BFF;">Privacy Policy</a> | <a href="#" style="color: #007BFF;">Terms of Service</a></p>
+            </div>
+        </footer>
+    </div>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <script>
+        const map = L.map('map').setView([51.505, -0.09], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        const routingControl = L.Routing.control({
+            waypoints: [],
+            routeWhileDragging: true,
+            geocoder: L.Control.Geocoder.nominatim(),
+            createMarker: function() { return null; },
+        }).addTo(map);
+
+        let crimeAreas = [];
+        let crimeMarkers = [];
+
+        async function fetchCrimeData(bounds) {
+            const southWest = bounds.getSouthWest();
+            const northEast = bounds.getNorthEast();
+            const url = `https://data.police.uk/api/crimes-street/all-crime?lat=${(southWest.lat + northEast.lat) / 2}&lng=${(southWest.lng + northEast.lng) / 2}`;
+            const crimeListElement = document.getElementById('crime-list');
+            crimeListElement.innerHTML = '';
+
+            try {
+                const response = await fetch(url);
+                let crimes = await response.json();
+                crimes = crimes.slice(0, 100);
+
+                if (crimes.length === 0) {
+                    crimeListElement.innerHTML = '<li>No crimes reported in this area.</li>';
+                } else {
+                    const crimeCoords = {};
+                    crimes.forEach(crime => {
+                        const lat = crime.location.latitude;
+                        const lng = crime.location.longitude;
+                        const street = crime.location.street.name;
+
+                        const marker = L.marker([lat, lng]).addTo(map);
+                        marker.bindPopup(`<strong>${crime.category}</strong><br>Location: ${street}`);
+                        crimeMarkers.push(marker);
+
+                        const key = `${lat},${lng}`;
+                        if (!crimeCoords[key]) {
+                            crimeCoords[key] = { count: 1, lat, lng, street };
+                        } else {
+                            crimeCoords[key].count += 1;
+                        }
+
+                        const li = document.createElement('li');
+                        li.innerHTML = `<strong>${crime.category}</strong> on ${street}`;
+                        crimeListElement.appendChild(li);
+                    });
+
+                    highlightCrimeAreas(crimeCoords);
+                }
+            } catch (error) {
+                console.error('Error fetching crime data:', error);
+            }
+        }
+
+        function highlightCrimeAreas(crimeCoords) {
+            crimeAreas.forEach(area => map.removeLayer(area));
+            crimeAreas = [];
+
+            Object.values(crimeCoords).forEach(coord => {
+                if (coord.count > 3) {
+                    const circle = L.circle([coord.lat, coord.lng], {
+                        color: 'red',
+                        fillColor: '#f03',
+                        fillOpacity: 0.5,
+                        radius: 200
+                    }).addTo(map);
+                    crimeAreas.push(circle);
+                }
+            });
+        }
+
+        map.on('moveend', () => {
+            const bounds = map.getBounds();
+            fetchCrimeData(bounds);
+        });
+
+        document.getElementById('get-directions').addEventListener('click', function() {
+            const start = map.getCenter();
+            const end = L.latLng(51.51, -0.12); // Example destination
+            routingControl.setWaypoints([start, end]);
+        });
+
+        document.getElementById('share-location').addEventListener('click', function() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    alert(`Your live location is: Latitude: ${lat}, Longitude: ${lng}`);
+                }, () => {
+                    alert('Unable to retrieve your location.');
+                });
+            } else {
+                alert('Geolocation is not supported by this browser.');
+            }
+        });
+
+        document.getElementById('emergency').addEventListener('click', function() {
+            alert('Emergency services have been called!');
+        });
+
+        document.getElementById('feedback-submit').addEventListener('click', () => {
+            const feedbackText = document.getElementById('feedback').value;
+            if (feedbackText.trim()) {
+                alert('Thank you for your feedback!');
+                document.getElementById('feedback').value = ''; // Clear feedback
+            } else {
+                alert('Please enter your feedback.');
+            }
+        });
+
+        document.getElementById('report-crime-submit').addEventListener('click', () => {
+            const reportText = document.getElementById('report-crime').value;
+            if (reportText.trim()) {
+                alert('Thank you for reporting the crime!');
+                document.getElementById('report-crime').value = ''; // Clear report
+            } else {
+                alert('Please describe the crime.');
+            }
+        });
+
+        document.getElementById('night-mode-toggle').addEventListener('click', () => {
+            document.body.classList.toggle('night-mode');
+            const isNightMode = document.body.classList.contains('night-mode');
+            const buttonText = isNightMode ? '🌞 Day Mode' : '🌙 Night Mode';
+            document.getElementById('night-mode-toggle').textContent = buttonText;
+        });
+
+        fetchCrimeData(map.getBounds());
+    </script>
+</body>
+</html>
+
